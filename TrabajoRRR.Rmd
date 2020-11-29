@@ -1,0 +1,102 @@
+---
+title: "graficas"
+author: "jhon"
+date: "29/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+
+# instalacion de librearias
+
+library(tidyverse)
+library(readxl)
+library(dplyr)
+
+
+```
+
+```{r}
+# Lectura de la base de datos 
+
+base <- read_excel("Respuestas trabajo estadistica.xlsx")
+
+# copia 
+base2 <- base
+
+
+```
+
+
+```{r}
+
+
+# primera grafca
+
+grafica1 <- base2 %>% 
+  select(Género, Aleatoriedad) %>% 
+  mutate(Género = str_replace(Género, "F", "Femenino")) %>%
+  mutate(Género = str_replace(Género, "M", "Masculino")) %>% 
+  group_by(Aleatoriedad, Género) %>% 
+  summarise(Cantidad = n())
+
+ggplot(grafica1, aes(x =Género,  y = Cantidad, group = Aleatoriedad, fill = Género))+
+  geom_bar(stat = "identity")+
+  facet_wrap(~Aleatoriedad, scales = "free_y")
+```
+
+
+```{r}
+Grafica2 <- base2 %>% 
+  select(`Creencia con respecto al destino o a la suerte`, Aleatoriedad) %>% 
+  group_by(Aleatoriedad, `Creencia con respecto al destino o a la suerte`) %>% 
+  summarise(Cantidad = n())
+
+ggplot(Grafica2, aes(x =`Creencia con respecto al destino o a la suerte`,  y = Cantidad, group = Aleatoriedad, fill = `Creencia con respecto al destino o a la suerte`))+
+  geom_bar(stat = "identity")+
+  facet_wrap(~Aleatoriedad, scales = "free_y")
+```
+```{r}
+Grafica3 <- base2 %>% 
+  select(`Nivel de estudio`, Aleatoriedad) %>% 
+  group_by(Aleatoriedad, `Nivel de estudio`) %>% 
+  summarise(Cantidad = n())
+
+ggplot(Grafica3, aes(x =`Nivel de estudio`,  y = Cantidad, group = Aleatoriedad, fill = `Nivel de estudio`))+
+  geom_bar(stat = "identity")+
+  facet_wrap(~Aleatoriedad, scales = "free_y")
+```
+```{r}
+Grafica4 <- base2 %>% 
+  select(`Inclinación al área del conocimiento`, Aleatoriedad) %>% 
+  group_by(Aleatoriedad, `Inclinación al área del conocimiento`) %>% 
+  summarise(Cantidad = n())
+
+ggplot(Grafica4, aes(x =`Inclinación al área del conocimiento`,  y = Cantidad, group = Aleatoriedad, fill = `Inclinación al área del conocimiento`))+
+  geom_bar(stat = "identity")+
+  facet_wrap(~Aleatoriedad, scales = "free_y")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+```{r}
+Grafica5 <- base2 %>% 
+  select(Edad, Aleatoriedad) %>% 
+  mutate(Edad = as.numeric(Edad)) %>% 
+  group_by(Aleatoriedad, Edad) %>% 
+  summarise(Cantidad = n()) 
+
+par(mfrow=c(1,1))
+hist(Grafica5[, 2],main = "Ejemplo de histograma",
+     xlab="",
+     col="blue",
+     breaks = "Sturges")
+
+summary(Grafica5)
+view(Grafica5[, 2])
+```
+
