@@ -87,16 +87,153 @@ ggplot(Grafica4, aes(x =`Inclinación al área del conocimiento`,  y = Cantidad,
 Grafica5 <- base2 %>% 
   select(Edad, Aleatoriedad) %>% 
   mutate(Edad = as.numeric(Edad)) %>% 
+  filter(Edad %in% c(15:25)) %>% 
   group_by(Aleatoriedad, Edad) %>% 
-  summarise(Cantidad = n()) 
+  summarise(Cantidad = n())
 
-par(mfrow=c(1,1))
-hist(Grafica5[, 2],main = "Ejemplo de histograma",
-     xlab="",
-     col="blue",
-     breaks = "Sturges")
+total01 <- bind_rows(Grafica5 %>% rownames_to_column())
 
-summary(Grafica5)
-view(Grafica5[, 2])
+
+a <- total01 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Grupal") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+b <- total01 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Sistemático") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+c <- total01 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Aleatorio") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+j = rbind(a,b,c)
+
+v <- as.data.frame(t(j[,-1]))
+t<- bind_rows(v %>% rownames_to_column())
+
+
+t2<- t%>%
+  dplyr::rename("Grupal"=V1,Sistemático=V2,"Intervalo"=rowname, Aleatorio = V3)
+
+t2 <- t2 %>% 
+  mutate(Intervalo = str_replace(Intervalo, "j", "[15;25]"))
+
+
+
+
+```
+```{r}
+Grafica5.1 <- base2 %>% 
+  select(Edad, Aleatoriedad) %>% 
+  mutate(Edad = as.numeric(Edad)) %>% 
+  filter(Edad %in% c(25:40)) %>% 
+  group_by(Aleatoriedad, Edad) %>% 
+  summarise(Cantidad = n())
+
+total011 <- bind_rows(Grafica5.1 %>% rownames_to_column())
+
+
+a1 <- total011 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Grupal") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+b1 <- total011 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Sistemático") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+c1 <- total011 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Aleatorio") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+j1 = rbind(a1,b1,c1)
+
+p <- as.data.frame(t(j1[,-1]))
+y<- bind_rows(p %>% rownames_to_column())
+
+
+y<- y%>%
+  dplyr::rename("Grupal"=V1,Sistemático=V2,"Intervalo"=rowname, Aleatorio = V3)
+
+y<- y %>% 
+  mutate(Intervalo = str_replace(Intervalo, "j", "[25;40]"))
+
+
+```
+```{r}
+Grafica5.2 <- base2 %>% 
+  select(Edad, Aleatoriedad) %>% 
+  mutate(Edad = as.numeric(Edad)) %>% 
+  filter(Edad %in% c(40:60)) %>% 
+  group_by(Aleatoriedad, Edad) %>% 
+  summarise(Cantidad = n())
+
+total0111 <- bind_rows(Grafica5.2 %>% rownames_to_column())
+
+
+a2 <- total0111 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Grupal") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+b2 <- total0111 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Sistemático") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+c2 <- total0111 %>% 
+  select(Aleatoriedad, Cantidad) %>% 
+  filter(Aleatoriedad %in% "Aleatorio") %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(j = sum(Cantidad))
+
+j2 = rbind(a2,b2,c2)
+
+p1 <- as.data.frame(t(j2[,-1]))
+y1<- bind_rows(p1 %>% rownames_to_column())
+
+
+y1<- y1%>%
+  dplyr::rename("Grupal"=V1,Sistemático=V2,"Intervalo"=rowname, Aleatorio = V3)
+
+y1<- y1 %>% 
+  mutate(Intervalo = str_replace(Intervalo, "j", "[40;60]"))
+
+
+```
+
+
+```{r}
+ultima <- rbind(t2,y, y1)
+
+q <- as.data.frame(t(ultima[,-1]))
+
+q11<- q%>%
+  dplyr::rename("[15:25]"=V1,"[25:40]"=V2, "[40:60]" = V3)
+
+q2 <- t(q11)
+
+```
+
+```{r}
+
+barplot(q2, col = c("#999999", "#E69F00", "#56B4E9"),
+        legend = rownames(q2),
+        beside = TRUE)
+
+
 ```
 
