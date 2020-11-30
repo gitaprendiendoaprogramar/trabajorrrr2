@@ -237,3 +237,21 @@ barplot(q2, col = c("#999999", "#E69F00", "#56B4E9"),
 
 ```
 
+```{r}
+library(scales)
+grafica6 <- base2 %>% 
+  select(Aleatoriedad, Edad) %>% 
+  group_by(Aleatoriedad) %>% 
+  summarise(cantidad = n())
+
+grafica6$prob <- round(prop.table(grafica6$cantidad), 4)*100
+
+ggplot(data=grafica6, aes(x=Aleatoriedad, y=cantidad, fill = cantidad)) + 
+    geom_bar(stat="identity", position = 'dodge')+
+  geom_text(aes(label= percent(prob/100)), vjust=1.6, color="white", size=3.5)+
+  ggtitle("grafico de frecuencias")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+
