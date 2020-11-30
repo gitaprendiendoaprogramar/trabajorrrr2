@@ -1,0 +1,951 @@
+---
+title: "Datos2"
+author: "Andres Camilo Garcia Moreno y Ronald Palencia "
+date: "14/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Importacion de librerias}
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(tidyr)
+```
+
+```{r Lectura de las  bases de datos}
+Base_de_datos <- read.csv("Accidentalidad_Envigado_2016___2017_y_Primer_Semestre_2018.csv", encoding = "UTF_8", na.strings = "")
+CD_Antioquia <- read.csv("Centros_educativos_municipio_de_Envigado_Antioquia.csv")
+ZER_2019 <- read.csv("Zonas_de_Estacionamiento_Regulado__ZER__Municipio_de_Envigado_2019.csv")
+```
+
+Primero recurrimos a cambiar el radicado a tipo factor
+```{r Analisis y Depuracion-1 Conversion de radicado}
+Base_de_datos01 <- Base_de_datos %>% 
+  mutate(RADICADO = as.factor(Base_de_datos$RADICADO))
+```
+
+Siguiente se procede con la a buscar datos que sean inconsistentes
+
+```{r Analisis y Depuracion-2 Datos inconsistentes}
+Analisis01 <- Base_de_datos01 %>%
+  select(ESTADO.DE.BEODEZ,RESULTADO.DE.BEODEZ,CAUSA)%>%
+  filter(CAUSA=="Cruzar en estado de embriaguez")
+```
+Como podemos ver hay accidentes cuya causa es cruzar es en estado de embriaguez , sin embargo
+el estado de beodez nos muestra que no hay , lo cual es un dato contradictorio
+
+```{r Analisis y Depuracion-3 Eliminacion de datos inconsistentes }
+Base_de_datos01 <- Base_de_datos01 %>% 
+  select(everything())%>%
+  filter(!CAUSA=="Cruzar en estado de embriaguez")
+```
+
+```{r Analisis y Depuracion-4 Eliminacion de Coordenadas nulas}
+Base_de_datos01 <- Base_de_datos01 %>%
+  select(everything())%>%
+  filter(!Coordenadas=="")
+```
+
+```{r Analisis y Depuracion-5 Formato de hora 1 }
+Base_de_datos02 <- Base_de_datos01 %>%
+  mutate(HORA=str_replace(HORA,"p.m.","PM")) %>%
+  mutate(HORA=str_replace(HORA,"a.m.","AM"))
+```
+```{r Analisis y Depuracion-6 Formato de hora 2}
+Cambio_horario<- parse_date_time(Base_de_datos02$HORA, '%I:%M %p')
+```
+
+```{r Analisis y Depuracion-7 Formato de hora 3}
+Base_de_datos03<- Base_de_datos02 %>%
+  mutate(HORA01=Cambio_horario)
+```
+
+```{r Analisis y Depuracion-8 Formato de hora 4}
+Base_de_datos04 <- Base_de_datos03 %>%
+  mutate(Hora_factor=substring(HORA01,12,19))%>%
+  mutate(HORA01=substring(HORA01,12,16)) %>%
+  mutate(Hora_en_minutos_a_media_noche=str_replace(HORA01,":","")) %>%
+  mutate(Hora_en_minutos_a_media_noche=as.double(Hora_en_minutos_a_media_noche))%>%
+  arrange(HORA01)
+```
+
+```{r Analisis y Depuracion-9 obtener variable año}
+Base_de_datos04 <- Base_de_datos04 %>% 
+  mutate(AÑO=substring(FECHA,7,10))%>%
+  mutate(AÑO=as.double(AÑO))
+```
+
+```{r Analisis y Depuracion-10 Conversion a tipo date de FECHA }
+Base_de_datos05 <-Base_de_datos04 %>%
+  mutate(Fecha_factor=FECHA)%>%
+  mutate(FECHA = mdy(substring(Base_de_datos04$FECHA, 1, 10)))
+
+```
+
+
+
+
+```{r Analisis y Depuracion-11 Correccion de datos con nombres iguales o parecidos}
+Base_de_datos05 <- Base_de_datos05%>%
+  mutate(ESTADO.DE.BEODEZ= str_replace(ESTADO.DE.BEODEZ,"SI","Si"))%>%
+  mutate(ESTADO.DE.BEODEZ= str_replace(ESTADO.DE.BEODEZ,"NO","No"))%>%
+  mutate(BARRIO=str_replace(BARRIO,"GLORIETA DE PELDAR","GLORIETA PELDAR"))%>%
+  mutate(BARRIO=str_replace(BARRIO,"URIBE ANGEL","MANUEL URIBE ANGEL"))%>%
+  mutate(BARRIO=str_replace(BARRIO,"ZUâ”œÃ¦IGA","BOSQUES DE ZUâ”œÃ¦IGA"))%>%
+  mutate(SEXO=str_replace(SEXO,"Sin Registro","Sin registro"))%>%
+  mutate(BARRIO = as.factor(BARRIO))%>%
+  mutate(SEXO = as.factor(SEXO))%>%
+  mutate(ESTADO.DE.BEODEZ = as.factor(ESTADO.DE.BEODEZ))
+
+```
+
+```{r Analisis y Depuracion-11 decimales}
+options(digits = 13)
+```
+
+
+```{r Analisis y Depuracion-12 Separacion de coordenadas }
+Base_de_datos06 <- Base_de_datos05 %>%
+  mutate(Latitud= substring(Coordenadas,2,12))%>%
+  mutate(Longitud= substring(Coordenadas,13,27))%>%
+  mutate(Latitud=str_replace(Latitud,",","")) %>%
+  mutate(Latitud=str_replace(Latitud,"-","")) %>%
+  mutate(Latitud=str_replace(Latitud," ","")) %>%
+  mutate(Longitud=str_replace(Longitud,",","")) %>%
+  mutate(Longitud=str_replace(Longitud," ","")) %>%
+  mutate(Longitud=str_replace(Longitud,"\\)",""))%>%
+  mutate(Latitud=as.double(Latitud))%>%
+  mutate(Longitud=as.double(Longitud))
+```
+en la transformacion de coordenada lamentablemente unos datos se corrompieron en el signo , en total fueron 8 datos
+como no fueron tantos se despreciaran
+```{r Eliminacion de datos corruptos}
+Base_de_datos06 <- Base_de_datos06 %>%
+  filter(Longitud<0)
+```
+
+
+
+1) ¿Como es el comportamiento de la accidentalidad de los  vehiculos a media noche?
+```{r Pregunta  1-1}
+pregunta01_1 <- Base_de_datos06 %>% 
+  group_by(Hora_en_minutos_a_media_noche, CLASE.DE.VEHICULO) %>% 
+  summarise(num_acc = n())%>%
+  arrange(desc(num_acc))%>%
+  filter(Hora_en_minutos_a_media_noche<100)
+```
+
+```{r Pregunta  1-2}
+ggplot(pregunta01_1, aes(Hora_en_minutos_a_media_noche, num_acc)) +
+  geom_line(aes(col = CLASE.DE.VEHICULO), size = 0.3) +
+  labs(y = "tipo de vehiculo")
+```
+
+la grafica anterior nos muestra que el comportamiento de la accidentalidad  a la media noche es un poco variable, tambien vemos que el automovil y la motocicleta son las que mayores accidentes causan, talvez eso pueda ocurrir por famosos piques que sulen hacer a altas horas de la noche. 
+Tambien la camioneta presenta una accidentalida relativamente alta.
+
+
+2) Cual es el dia que tiene mayor accidentalidad por barrio?
+```{r Pregunta  2-1}
+pregunta02_1 <- Base_de_datos06 %>%
+  group_by(dia=wday(FECHA, label = TRUE, abbr = FALSE),BARRIO)%>%
+  summarise(num_acc = n()) %>%
+  group_by(BARRIO)%>%
+  mutate(promedio_semanal = mean(num_acc))%>%
+  
+  filter(BARRIO=="ALCALA" | BARRIO=="ALTO DE MISAEL" | BARRIO=="AVENIDA EL POBLADO" | BARRIO=="BOSQUES DE ZUâ”œÃ¦IGA" | BARRIO=="BUCAREST" | BARRIO=="EL CHINGUâ”œÃ¬" | BARRIO=="EL CHOCHO" | 
+           BARRIO=="EL DORADO" | BARRIO=="EL ESMERALDAL" | BARRIO=="EL PORTAL" | BARRIO=="EL SALADO" |BARRIO=="EL TRIANON" |BARRIO=="EL VALLANO"|BARRIO=="GLORIETA PELDAR"|BARRIO=="GLORIETA EXITO"|BARRIO=="JARDINES" )
+```
+
+```{r Pregunta  2-2}
+pregunta02_2 <- Base_de_datos06 %>%
+  group_by(dia=wday(FECHA, label = TRUE, abbr = FALSE),BARRIO)%>%
+  summarise(num_acc = n()) %>%
+  group_by(BARRIO)%>%
+  mutate(promedio_semanal = mean(num_acc))%>%
+  
+  filter(BARRIO=="LA INMACULADA" | BARRIO=="LA MAGNOLIA" | BARRIO=="LA MINA" | BARRIO=="LA PAZ" | BARRIO=="LA PRADERA" | BARRIO=="LA SEBASTIANA" | BARRIO=="LAS ANTILLAS" | 
+           BARRIO=="LAS CASITAS" | BARRIO=="LAS FLORES" | BARRIO=="LAS ORQUIDEAS" | BARRIO=="LAS VEGAS" |BARRIO=="LOMA DE LAS BRUJAS" |BARRIO=="LOMA DEL ATRAVEZADO"|BARRIO=="LOMA DEL BARRO"|BARRIO=="LOS NARANJOS"|BARRIO=="MANUEL URIBE ANGEL" )
+```
+
+```{r Pregunta  2-3}
+pregunta02_3 <- Base_de_datos06 %>%
+  group_by(dia=wday(FECHA, label = TRUE, abbr = FALSE),BARRIO)%>%
+  summarise(num_acc = n()) %>%
+  group_by(BARRIO)%>%
+  mutate(promedio_semanal = mean(num_acc))%>%
+  
+  filter(BARRIO=="MESA" | BARRIO=="MILAN VALLEJUELOS" | BARRIO=="N/R" | BARRIO=="OBRERO" | BARRIO=="PONTE VEDRA" | BARRIO=="PRIMAVERA" | 
+           BARRIO=="PUENTE FUNDADORES" | BARRIO=="SAN JOSE" | BARRIO=="SAN MARCOS" | BARRIO=="SAN RAFAEL" |BARRIO=="VEREDA EL ESCOBERO" |BARRIO=="VILLA GRANDE"|BARRIO=="ZONA CENTRO")
+```
+
+
+```{r Pregunta  2-4}
+grafico2_1 <-ggplot(pregunta02_1 %>% filter(!is.na(BARRIO)), 
+       aes(dia, num_acc)) +
+  geom_point() +
+  geom_line(aes(group = BARRIO)) +
+  facet_wrap(~BARRIO, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0)) +
+  geom_hline(aes(yintercept =promedio_semanal), col = "red")
+suppressMessages(print(grafico2_1))
+```
+
+```{r Pregunta  2-5}
+grafico2_2 <-ggplot(pregunta02_2 %>% filter(!is.na(BARRIO)), 
+       aes(dia, num_acc)) +
+  geom_point() +
+  geom_line(aes(group = BARRIO)) +
+  facet_wrap(~BARRIO, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0)) +
+  geom_hline(aes(yintercept =promedio_semanal), col = "red")
+suppressMessages(print(grafico2_2))
+```
+
+```{r Pregunta  2-6}
+grafico2_3 <-ggplot(pregunta02_3 %>% filter(!is.na(BARRIO)), 
+       aes(dia, num_acc)) +
+  geom_point() +
+  geom_line(aes(group = BARRIO)) +
+  facet_wrap(~BARRIO, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0)) +
+  geom_hline(aes(yintercept =promedio_semanal), col = "red")
+suppressMessages(print(grafico2_3))
+```
+
+Las gráficas anteriores nos muestran el comportamiento de la accidentalidad que se tiene cada día en los diferentes barrios de en envigado, podemos ver 	que es muy oscilante, que dependiendo del día la accidentalidad en cada barrio es diferente. Puede ser que los barrios donde se presenta una alta accidentalidad los días  lunes, martes, miércoles, jueves y viernes, so barrios que suelen tener una alta taza de empleos o industriales.  
+
+3)Cuales son las causas que hacen ocurrir mayor accidentalidad en los dias de la semana?
+
+```{r Pregunta  3-1}
+pregunta03_1 <- Base_de_datos06 %>% 
+  group_by(CAUSA = CAUSA, dia=wday(FECHA, label = TRUE, abbr = FALSE)) %>% 
+  summarise(num_acc = n())%>%
+  filter(CAUSA=="Adelantar cerrando" |
+CAUSA=="Adelantar en curva" |
+CAUSA=="Adelantar en zona prohibida" |
+CAUSA=="Adelantar invadiendo carril de sentido contrario" |
+CAUSA=="Adelantar invadiendo carril del mismo sentido en zigzag" |
+CAUSA=="Adelantar por la derecha" |
+CAUSA=="Aprovisionamiento indebido" |
+CAUSA=="Arrancar sin precaucion" |
+CAUSA=="Ausencia o deficencia en demarcacion" |
+CAUSA=="Ausencia parcial o total de senales" |
+CAUSA=="Carga sobresaliente sin autorizacion" |
+CAUSA=="Carga sobresaliente sin senales" |
+CAUSA=="Cargue o descarge en horas/sitios prohib" |
+CAUSA=="Circular por calzadas o carriles destina" |
+CAUSA=="Cruzar en diagonal" | 
+CAUSA=="Cruzar en estado de embriaguez")
+```
+
+```{r Pregunta  3-2}
+pregunta03_2 <- Base_de_datos06 %>% 
+  group_by(CAUSA = CAUSA, dia=wday(FECHA, label = TRUE, abbr = FALSE)) %>% 
+  summarise(num_acc = n())%>%
+  filter(CAUSA=="Cruzar sin observar" |
+CAUSA=="Defectos fisicos y psiquicos" |
+CAUSA=="Dejar o movilizar semovientes" |
+CAUSA=="Dejar obstaculos en la via" |
+CAUSA=="Dejar/recoger pasajeros sitio no demarca" |
+CAUSA=="Descender o subir del vehiculo en marcha" |
+CAUSA=="Desobedecer al agente" |
+CAUSA=="Desobedecer senales" |
+CAUSA=="Embriaguez aparente" |
+CAUSA=="Embriaguez o droga" |
+CAUSA=="Estacionar sin seguridad" |
+CAUSA=="Exceso de peso" |
+CAUSA=="Exceso de velocidad" |
+CAUSA=="Falla en luces de freno" |
+CAUSA=="Fallas en el sistema electrico" |
+CAUSA=="Fallas en la direccion")
+```
+
+```{r Pregunta  3-3}
+pregunta03_3 <- Base_de_datos06 %>% 
+  group_by(CAUSA = CAUSA, dia=wday(FECHA, label = TRUE, abbr = FALSE)) %>% 
+  summarise(num_acc = n())%>%
+  filter(CAUSA=="Fallas en la tapa del motor" |
+CAUSA=="Fallas en las llantas" |
+CAUSA=="Fallas en los frenos" |
+CAUSA=="Falta de mantenimiento mecanico" |
+CAUSA=="Falta de precaucion niebla" |
+CAUSA=="Falta de se?ales en vehiculo varado" |
+CAUSA=="Frenar bruscamente" |
+CAUSA=="Girar bruscamente" |
+CAUSA=="Huecos" |
+CAUSA=="Impericia en el manejo" |
+CAUSA=="Jugar en la via" |
+CAUSA=="No conducir a harcajadas" |
+CAUSA=="No hacer uso de senales reflectivas o luminosas" |
+CAUSA=="No mantener distancia de seguridad" |
+CAUSA=="No respetar pelacion de interseccion o giros" |
+CAUSA=="No respetar prelacion")
+```
+
+```{r Pregunta  3-4}
+pregunta03_4 <- Base_de_datos06 %>% 
+  group_by(CAUSA = CAUSA, dia=wday(FECHA, label = TRUE, abbr = FALSE)) %>% 
+  summarise(num_acc = n())%>%
+  filter(CAUSA=="Obstaculos en la via" |
+CAUSA=="Otra" |
+CAUSA=="Pasar semaforo en rojo" |
+CAUSA=="Poner en marcha un vehiculo sin precauci" | 
+CAUSA=="Realizar giro en U" |
+CAUSA=="Recoger o dejar pasajeros en calzada" |
+CAUSA=="Remolque sin precaucion" |
+CAUSA=="Reverso imprudente" |
+CAUSA=="Salir por delante de un vehiculo" |
+CAUSA=="Salirse de la calzada" |
+CAUSA=="Semaforo en rojo" |
+CAUSA=="Subirse al anden o vias peatonales" |
+CAUSA=="Sujetarse a otro veh!culo" |
+CAUSA=="Superficie humeda")
+```
+
+```{r Pregunta  3-5}
+pregunta03_5<- Base_de_datos06 %>% 
+  group_by(CAUSA = CAUSA, dia=wday(FECHA, label = TRUE, abbr = FALSE)) %>% 
+  summarise(num_acc = n())%>%
+  filter(CAUSA=="Superficie lisa" |
+CAUSA=="Transitar con las puertas abiertas" | 
+CAUSA=="Transitar distante de la acera u orilla" |
+CAUSA=="Transitar en contravia" |
+CAUSA=="Transitar entre vehiculos" |
+CAUSA=="Transitar por la calzada" |
+CAUSA=="Transitar por vias prohibidas" |
+CAUSA=="Transitar sin luces" |
+CAUSA=="Transitar uno al lado del otro" |
+CAUSA=="Transporte de carga sin seguridad" |
+CAUSA=="Trasportar otras personas o cosas" |
+CAUSA=="Vehiculo mal estacionado")
+```
+
+```{r Pregunta 3-6}
+grafico3_1 <-ggplot(pregunta03_1 %>% filter(!is.na(dia)), 
+       aes(CAUSA, num_acc,fill=CAUSA)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~dia, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+suppressMessages(print(grafico3_1))
+```
+```{r Pregunta 3-7}
+grafico3_2 <-ggplot(pregunta03_2 %>% filter(!is.na(dia)), 
+       aes(CAUSA, num_acc,fill=CAUSA)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~dia, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+suppressMessages(print(grafico3_2))
+```
+
+```{r Pregunta 3-8}
+grafico3_3 <-ggplot(pregunta03_3 %>% filter(!is.na(dia)), 
+       aes(CAUSA, num_acc,fill=CAUSA)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~dia, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+suppressMessages(print(grafico3_3))
+```
+
+```{r Pregunta 3-9}
+grafico3_4 <-ggplot(pregunta03_4 %>% filter(!is.na(dia)), 
+       aes(CAUSA, num_acc,fill=CAUSA)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~dia, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+suppressMessages(print(grafico3_4))
+```
+
+```{r Pregunta 3-10}
+grafico3_5 <-ggplot(pregunta03_5 %>% filter(!is.na(dia)), 
+       aes(CAUSA, num_acc,fill=CAUSA)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~dia, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+suppressMessages(print(grafico3_5))
+```
+
+De las graficas anteriores podemos notar que las causas que mayor accidentalidad haceN ocurrir es la de no mantener distancia de seguridad, seguida por desobedecer señales y adelantar cerrado, tambien nos muestran que el dia viernes es que mayor accidentalidad presenta.
+
+
+
+4)Que barrios tienden a que el accidente haya ocurrido en estado de embriaguez?
+```{r Pregunta  4-1}
+pregunta04_1 <- Base_de_datos06 %>% 
+  group_by(BARRIO =BARRIO, ESTADO.DE.BEODEZ) %>%
+  summarise(num_acc = n())%>%
+  filter(ESTADO.DE.BEODEZ == "Si")
+```
+```{r Pregunta 4-2}
+ggplot(pregunta04_1, aes(x=BARRIO,y=num_acc)) +
+  geom_bar(stat="identity")+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  geom_hline(aes(yintercept = mean(num_acc)), col = "red")
+  
+```
+Las vegas es el barrio que mayor accidentalidad presenta por estado de beodez, seguido por el dorado y zona centro, los demás barrios  presentan una parecidas y relativamente bajas a las vegas  y el dorado.
+
+5) Como estan distribuidos el tipo de victimas respecto a las coordenadas geograficas?
+
+```{r Pregunta  5}
+ggplot(Base_de_datos06, aes(Longitud, Latitud, col = TIPO.DE.VICTIMA)) +
+  geom_point()
+```
+
+podemos notar que los conductores y los motociclistas están siendo accidentados en el centro, norte y occidente, en su gran mayoría.
+
+6) Que tipo de accidentes ocurre con mayor frecuencia en el area urbana y que tipo de vehiculo es ?
+
+```{r Pregunta  6-1}
+pregunta06_1 <- Base_de_datos06 %>% 
+  group_by(AREA, CLASE.DE.VEHICULO,CLASE.DE.ACCIDENTE) %>%
+  summarise(num_acc = n()) %>%
+  group_by(CLASE.DE.VEHICULO)%>%
+  mutate(promedio_semanal = mean(num_acc))%>%
+  arrange(desc(num_acc))%>%
+  filter(CLASE.DE.VEHICULO=="AUTOMOVIL" |CLASE.DE.VEHICULO=="BICICLETA"  |CLASE.DE.VEHICULO=="BUS" |
+           CLASE.DE.VEHICULO=="BUSETA" |CLASE.DE.VEHICULO=="CAMION" |CLASE.DE.VEHICULO=="CAMIONETA" |
+           CLASE.DE.VEHICULO=="CAMPERO" |CLASE.DE.VEHICULO=="CUATRIMOTO" )
+```
+
+```{r Pregunta  6-2}
+pregunta06_2 <- Base_de_datos06 %>% 
+  group_by(AREA, CLASE.DE.VEHICULO,CLASE.DE.ACCIDENTE) %>%
+  summarise(num_acc = n()) %>%
+  group_by(CLASE.DE.VEHICULO)%>%
+  mutate(promedio_semanal = mean(num_acc))%>%
+  arrange(desc(num_acc))%>%
+  filter(CLASE.DE.VEHICULO=="MICROBUS" |CLASE.DE.VEHICULO=="MINI BUS" |CLASE.DE.VEHICULO=="MOTOCARRO" |CLASE.DE.VEHICULO=="MOTOCICLETA" |
+           CLASE.DE.VEHICULO=="Sin registro" |CLASE.DE.VEHICULO=="VOLQUETA" )
+```
+
+
+```{r Pregunta  6-3}
+pregunta06_3 <- Base_de_datos06 %>% 
+  group_by(AREA, CLASE.DE.VEHICULO,CLASE.DE.ACCIDENTE) %>%
+  summarise(num_acc = n()) %>%
+  group_by(CLASE.DE.VEHICULO)%>%
+  mutate(promedio_semanal = mean(num_acc))%>%
+  arrange(desc(num_acc))%>%
+  filter(CLASE.DE.VEHICULO=="MAQ. AGRICOLA" |CLASE.DE.VEHICULO=="MAQ. INDUSTRIAL" |CLASE.DE.VEHICULO=="CLASE ACCIDE NO IDENTIFI" |
+           CLASE.DE.VEHICULO=="MINICARGADOR RNMA"  |CLASE.DE.VEHICULO=="TRACTOCAMION" |CLASE.DE.VEHICULO=="BULDOZER RNMA" )
+
+```
+```{r Pregunta 6-4}
+ggplot(pregunta06_1 %>% filter(!is.na(CLASE.DE.VEHICULO)), 
+       aes(CLASE.DE.ACCIDENTE, num_acc , fill=CLASE.DE.ACCIDENTE)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~CLASE.DE.VEHICULO, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0)) 
+```
+```{r Pregunta 6-5}
+ggplot(pregunta06_2 %>% filter(!is.na(CLASE.DE.VEHICULO)), 
+       aes(CLASE.DE.ACCIDENTE, num_acc , fill=CLASE.DE.ACCIDENTE)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~CLASE.DE.VEHICULO, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0)) 
+```
+```{r Pregunta 6-6}
+ggplot(pregunta06_3 %>% filter(!is.na(CLASE.DE.VEHICULO)), 
+       aes(CLASE.DE.ACCIDENTE, num_acc )) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~CLASE.DE.VEHICULO, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))
+```
+
+Podemos notar que el tipo de accidente que ocurre con mayor frecuencia es el choque, causados por los automóviles con 6000, seguido por la motocicleta con 3000 y luego la camioneta con 1500.
+
+7)Cuales son las causas que hacen ocurrir los choques y cual es su gravedad?
+```{r Pregunta  7-1}
+pregunta07_1 <- Base_de_datos06 %>%
+  filter(CLASE.DE.ACCIDENTE=="Choque")%>%
+  group_by(GRAVEDAD,CLASE.DE.ACCIDENTE,CAUSA) %>%
+  summarise(num_acc = n())%>%
+  arrange(desc(num_acc))%>%
+  filter(CAUSA=="Adelantar cerrando" |
+CAUSA=="Adelantar en curva" |
+CAUSA=="Adelantar en zona prohibida" |
+CAUSA=="Adelantar invadiendo carril de sentido contrario" |
+CAUSA=="Adelantar invadiendo carril del mismo sentido en zigzag" |
+CAUSA=="Adelantar por la derecha" |
+CAUSA=="Aprovisionamiento indebido" |
+CAUSA=="Arrancar sin precaucion" |
+CAUSA=="Ausencia o deficencia en demarcacion" |
+CAUSA=="Ausencia parcial o total de senales" |
+CAUSA=="Carga sobresaliente sin autorizacion" |
+CAUSA=="Carga sobresaliente sin senales" |
+CAUSA=="Cargue o descarge en horas/sitios prohib" |
+CAUSA=="Circular por calzadas o carriles destina" |
+CAUSA=="Cruzar en diagonal" | 
+CAUSA=="Cruzar en estado de embriaguez")
+```
+
+```{r Pregunta  7-2}
+pregunta07_2 <- Base_de_datos06 %>%
+  filter(CLASE.DE.ACCIDENTE=="Choque")%>%
+  group_by(GRAVEDAD,CLASE.DE.ACCIDENTE,CAUSA) %>%
+  summarise(num_acc = n())%>%
+  arrange(desc(num_acc))%>%
+  filter(
+CAUSA=="Cruzar sin observar" |
+CAUSA=="Defectos fisicos y psiquicos" |
+CAUSA=="Dejar o movilizar semovientes" |
+CAUSA=="Dejar obstaculos en la via" |
+CAUSA=="Dejar/recoger pasajeros sitio no demarca" |
+CAUSA=="Descender o subir del vehiculo en marcha" |
+CAUSA=="Desobedecer al agente" |
+CAUSA=="Desobedecer senales" |
+CAUSA=="Embriaguez aparente" |
+CAUSA=="Embriaguez o droga" |
+CAUSA=="Estacionar sin seguridad" |
+CAUSA=="Exceso de peso" |
+CAUSA=="Exceso de velocidad" |
+CAUSA=="Falla en luces de freno" |
+CAUSA=="Fallas en el sistema electrico" |
+CAUSA=="Fallas en la direccion")
+```
+
+```{r Pregunta  7-3}
+pregunta07_3 <- Base_de_datos06 %>%
+  filter(CLASE.DE.ACCIDENTE=="Choque")%>%
+  group_by(GRAVEDAD,CLASE.DE.ACCIDENTE,CAUSA) %>%
+  summarise(num_acc = n())%>%
+  arrange(desc(num_acc))%>%
+  filter(CAUSA=="Fallas en la tapa del motor" |
+CAUSA=="Fallas en las llantas" |
+CAUSA=="Fallas en los frenos" |
+CAUSA=="Falta de mantenimiento mecanico" |
+CAUSA=="Falta de precaucion niebla" |
+CAUSA=="Falta de se?ales en vehiculo varado" |
+CAUSA=="Frenar bruscamente" |
+CAUSA=="Girar bruscamente" |
+CAUSA=="Huecos" |
+CAUSA=="Impericia en el manejo" |
+CAUSA=="Jugar en la via" |
+CAUSA=="No conducir a harcajadas" |
+CAUSA=="No hacer uso de senales reflectivas o luminosas" |
+CAUSA=="No mantener distancia de seguridad" |
+CAUSA=="No respetar pelacion de interseccion o giros" |
+CAUSA=="No respetar prelacion")
+```
+
+```{r Pregunta  7-4}
+pregunta07_4 <- Base_de_datos06 %>%
+  filter(CLASE.DE.ACCIDENTE=="Choque")%>%
+  group_by(GRAVEDAD,CLASE.DE.ACCIDENTE,CAUSA) %>%
+  summarise(num_acc = n())%>%
+  arrange(desc(num_acc))%>%
+  filter(
+CAUSA=="Obstaculos en la via" |
+CAUSA=="Otra" |
+CAUSA=="Pasar semaforo en rojo" |
+CAUSA=="Poner en marcha un vehiculo sin precauci" | 
+CAUSA=="Realizar giro en U" |
+CAUSA=="Recoger o dejar pasajeros en calzada" |
+CAUSA=="Remolque sin precaucion" |
+CAUSA=="Reverso imprudente" |
+CAUSA=="Salir por delante de un vehiculo" |
+CAUSA=="Salirse de la calzada" |
+CAUSA=="Semaforo en rojo" |
+CAUSA=="Subirse al anden o vias peatonales" |
+CAUSA=="Sujetarse a otro veh!culo" |
+CAUSA=="Superficie humeda")
+```
+
+```{r Pregunta  7-5}
+pregunta07_5 <- Base_de_datos06 %>%
+  filter(CLASE.DE.ACCIDENTE=="Choque")%>%
+  group_by(GRAVEDAD,CLASE.DE.ACCIDENTE,CAUSA) %>%
+  summarise(num_acc = n())%>%
+  arrange(desc(num_acc))%>%
+  filter(CAUSA=="Superficie lisa" |
+CAUSA=="Transitar con las puertas abiertas" | 
+CAUSA=="Transitar distante de la acera u orilla" |
+CAUSA=="Transitar en contravia" |
+CAUSA=="Transitar entre vehiculos" |
+CAUSA=="Transitar por la calzada" |
+CAUSA=="Transitar por vias prohibidas" |
+CAUSA=="Transitar sin luces" |
+CAUSA=="Transitar uno al lado del otro" |
+CAUSA=="Transporte de carga sin seguridad" |
+CAUSA=="Trasportar otras personas o cosas" |
+CAUSA=="Vehiculo mal estacionado")
+```
+
+```{r Pregunta 7-6}
+ggplot(pregunta07_1 %>% filter(!is.na(GRAVEDAD)), 
+       aes(CAUSA, num_acc , fill=CAUSA)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~GRAVEDAD, scales = "free_y")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+```{r Pregunta 7-7}
+ggplot(pregunta07_2 %>% filter(!is.na(GRAVEDAD)), 
+       aes(CAUSA, num_acc , fill=CAUSA)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~GRAVEDAD, scales = "free_y")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+```{r Pregunta 7-8}
+ggplot(pregunta07_3 %>% filter(!is.na(GRAVEDAD)), 
+       aes(CAUSA, num_acc , fill=CAUSA)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~GRAVEDAD, scales = "free_y")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+```{r Pregunta 7-9}
+ggplot(pregunta07_4 %>% filter(!is.na(GRAVEDAD)), 
+       aes(CAUSA, num_acc , fill=CAUSA)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~GRAVEDAD, scales = "free_y")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+```{r Pregunta 7-10}
+ggplot(pregunta07_5 %>% filter(!is.na(GRAVEDAD)), 
+       aes(CAUSA, num_acc , fill=CAUSA)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~GRAVEDAD, scales = "free_y")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+Las causas que hacen ocurrir los choque son los siguientes, no mantener distancia de seguridad con una gravedad de solo daños y heridos, adelantar cerrado es otra de las causas que también tiene un grado alto de accidentalidad con las mismas gravedades que la primera, notamos que la mayoría de las  muertes se presenta por causas desconocidas. 
+
+8)Cual es el comportamiento a largo de los años del numero de accidentes por la clase de accidente?
+```{r Pregunta  8-1}
+tablapregunta8_1 <- Base_de_datos06 %>% 
+  group_by(año =AÑO, CLASE.DE.ACCIDENTE) %>% 
+  summarise(num_acc = n())
+```
+```{r Pregunta  8-2}
+tablapregunta8_2 <- Base_de_datos06 %>% 
+  group_by(año =AÑO, CLASE.DE.ACCIDENTE) %>% 
+  summarise(num_acc = n())%>%
+  filter(!CLASE.DE.ACCIDENTE=="Choque")
+```
+
+
+```{r Pregunta  8-3}
+ggplot(tablapregunta8_1, aes(año, num_acc)) +
+  geom_line(aes(col = CLASE.DE.ACCIDENTE), size = 1.5) +
+  labs(y = "Número de incidentes")
+```
+```{r pregunta 8-4}
+ggplot(tablapregunta8_2, aes(año, num_acc)) +
+  geom_line(aes(col = CLASE.DE.ACCIDENTE), size = 1.5) +
+  labs(y = "Número de incidentes")
+```
+Vemos que el choque de 2016 a 2017 tuvo una pendiente positiva y de 2017 a 2018 tuvo una pendiente negativa, las otras clases de accidentes ah tenido un comportamiento similar, con pendiente positiva de 2016 a 2017 y luego negativa. En general se puede decir que el numero de incidentes a disminuido en cada clase de accidente.
+
+9) como estan distribuidos los accidentes por el tipo de servicio segun las coordenadas geograficas?
+
+```{r Pregunta  9}
+ggplot(Base_de_datos06, aes(Longitud, Latitud, col = TIPO.DE.SERVICIO)) +
+  geom_point()
+```
+Podemos notar que la mayoría de los accidentes se presentan el centro de envigado y mas hacia el norte y el oriente, y el tipo de servicio es el automóvil. 
+
+10) Cual es el comportamiento en relacion al tipo de servicio del accidente al que tiende cada genero?
+```{r Pregunta  10}
+pregunta10_1 <- Base_de_datos06%>%
+  group_by(SEXO,TIPO.DE.SERVICIO)%>%
+  filter(!SEXO=="Sin registro")%>%
+  summarise(num_acc = n())%>%
+  arrange(desc(num_acc))%>%
+  arrange(SEXO)
+```
+```{r Pregunta 10-2}
+ggplot(pregunta10_1 %>% filter(!is.na(TIPO.DE.SERVICIO)), 
+       aes(SEXO
+, num_acc , fill=SEXO
+)) +
+  geom_bar(position="dodge", stat="identity") +
+  facet_wrap(~TIPO.DE.SERVICIO, scales = "free_y")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+Podemos notar que el tipo de servicio que mayor accidentalidad presenta en particular, tanto en hombres como en mujeres, y que en general los hombres son los más accidentados en todo los tipos de servicios.
+
+```{r Especial  Agregar accidentes para ambas preguntas}
+Accidente <- Base_de_datos06%>%
+  select(Latitud,Longitud,Coordenadas)%>%
+  mutate(Coordenadas="Accidente")
+```
+
+EX1) las instituciones educativas estan expuestas en zonas de accidentalidad ?
+```{r Pregunta Especial 01-1 Agregar Coordenadas}
+BaseEX01 <- CD_Antioquia%>%
+  mutate(Latitud=2)%>%
+  mutate(Longitud=4)
+BaseEX01$Latitud[1]<-6.170017
+BaseEX01$Latitud[2]<-6.153459
+BaseEX01$Latitud[3]<-6.153471
+BaseEX01$Latitud[4]<-6.153713
+BaseEX01$Latitud[5]<-6.153455
+BaseEX01$Latitud[6]<-6.167830
+BaseEX01$Latitud[7]<-6.153270
+BaseEX01$Latitud[8]<-6.171555
+BaseEX01$Latitud[9]<-6.167601
+BaseEX01$Latitud[10]<-6.172838
+BaseEX01$Latitud[11]<-6.162317
+BaseEX01$Latitud[12]<-6.162317
+BaseEX01$Latitud[13]<-6.163389
+BaseEX01$Latitud[14]<-6.165092
+BaseEX01$Latitud[15]<-6.163389
+BaseEX01$Latitud[16]<-6.151467
+BaseEX01$Latitud[17]<-6.190038
+BaseEX01$Latitud[18]<-6.190134
+BaseEX01$Latitud[19]<-6.170497
+BaseEX01$Latitud[20]<-6.172709
+BaseEX01$Latitud[21]<-6.167257
+BaseEX01$Latitud[22]<-3
+BaseEX01$Latitud[23]<-6.170968
+BaseEX01$Latitud[24]<-6.166793
+BaseEX01$Latitud[25]<-6.167371
+BaseEX01$Latitud[26]<-3
+BaseEX01$Latitud[27]<-6.151007
+BaseEX01$Latitud[28]<-6.179084
+BaseEX01$Latitud[29]<-6.177526
+BaseEX01$Latitud[30]<-6.155972
+BaseEX01$Latitud[31]<-6.168011
+BaseEX01$Latitud[32]<-6.167551
+BaseEX01$Latitud[33]<-6.171495
+BaseEX01$Latitud[34]<-6.158574 
+BaseEX01$Latitud[35]<-6.155533
+BaseEX01$Latitud[36]<-6.153731 
+BaseEX01$Latitud[37]<-6.180662
+BaseEX01$Latitud[38]<-6.155681
+BaseEX01$Latitud[39]<-6.157383 
+BaseEX01$Latitud[40]<-6.167344
+BaseEX01$Latitud[41]<-6.166505
+BaseEX01$Latitud[42]<-6.182289
+BaseEX01$Latitud[43]<-6.158519
+BaseEX01$Latitud[44]<-6.170447
+BaseEX01$Latitud[45]<-6.158312
+BaseEX01$Latitud[46]<-6.154203
+BaseEX01$Latitud[47]<-6.171655
+BaseEX01$Latitud[48]<-6.167660
+BaseEX01$Latitud[49]<-6.170633
+BaseEX01$Latitud[50]<-6.167809
+BaseEX01$Latitud[51]<-6.169798 
+BaseEX01$Latitud[52]<-6.176400 
+BaseEX01$Latitud[53]<-3
+BaseEX01$Latitud[54]<-6.161519
+BaseEX01$Latitud[55]<-6.158770
+BaseEX01$Latitud[56]<-6.177121
+BaseEX01$Latitud[57]<-6.167082
+BaseEX01$Latitud[58]<-6.166929
+BaseEX01$Latitud[59]<-6.175363
+BaseEX01$Latitud[60]<-6.159854
+BaseEX01$Latitud[61]<-6.168718
+BaseEX01$Latitud[62]<-6.168230
+BaseEX01$Latitud[63]<-6.162703
+BaseEX01$Latitud[64]<-6.164324
+BaseEX01$Latitud[65]<-6.174539 
+BaseEX01$Latitud[66]<-6.180555
+BaseEX01$Latitud[67]<-6.165604
+BaseEX01$Latitud[68]<-6.169233 
+BaseEX01$Latitud[69]<-6.166177
+BaseEX01$Latitud[70]<-6.174477
+BaseEX01$Latitud[71]<-6.174211
+BaseEX01$Latitud[72]<-6.151681
+BaseEX01$Latitud[73]<-6.167960
+BaseEX01$Latitud[74]<-6.163375
+BaseEX01$Latitud[75]<-6.165153
+BaseEX01$Latitud[76]<-6.159823
+BaseEX01$Latitud[77]<-6.157653
+BaseEX01$Latitud[78]<-6.164094
+BaseEX01$Latitud[79]<-6.165717
+BaseEX01$Latitud[80]<-6.160796
+BaseEX01$Latitud[81]<-6.160780
+BaseEX01$Latitud[82]<-6.168523
+BaseEX01$Latitud[83]<-6.169014
+BaseEX01$Latitud[84]<-6.159420
+BaseEX01$Latitud[85]<-6.170981
+BaseEX01$Latitud[86]<-6.177359
+BaseEX01$Latitud[87]<-6.175829
+BaseEX01$Longitud[1]<--75.592380
+BaseEX01$Longitud[2]<--75.585176 
+BaseEX01$Longitud[3]<--75.585084
+BaseEX01$Longitud[4]<--75.585187
+BaseEX01$Longitud[5]<--75.585176
+BaseEX01$Longitud[6]<--75.578465
+BaseEX01$Longitud[7]<--75.577735
+BaseEX01$Longitud[8]<--75.591053
+BaseEX01$Longitud[9]<--75.586489
+BaseEX01$Longitud[10]<--75.581191
+BaseEX01$Longitud[11]<--75.593924
+BaseEX01$Longitud[12]<--75.593924
+BaseEX01$Longitud[13]<--75.594352
+BaseEX01$Longitud[14]<--75.590903
+BaseEX01$Longitud[15]<--75.594352
+BaseEX01$Longitud[16]<--75.533830
+BaseEX01$Longitud[17]<--75.503347
+BaseEX01$Longitud[18]<--75.503313
+BaseEX01$Longitud[19]<--75.589784
+BaseEX01$Longitud[20]<--75.586404
+BaseEX01$Longitud[21]<--75.581895
+BaseEX01$Longitud[22]<-3
+BaseEX01$Longitud[23]<--75.577119
+BaseEX01$Longitud[24]<--75.578972
+BaseEX01$Longitud[25]<--75.565695
+BaseEX01$Longitud[26]<-3
+BaseEX01$Longitud[27]<--75.536743
+BaseEX01$Longitud[28]<--75.574669
+BaseEX01$Longitud[29]<--75.584186
+BaseEX01$Longitud[30]<--75.541451
+BaseEX01$Longitud[31]<--75.572168
+BaseEX01$Longitud[32]<--75.587462
+BaseEX01$Longitud[33]<--75.589049
+BaseEX01$Longitud[34]<--75.592369
+BaseEX01$Longitud[35]<--75.536348
+BaseEX01$Longitud[36]<--75.565533
+BaseEX01$Longitud[37]<--75.579904
+BaseEX01$Longitud[38]<--75.602979
+BaseEX01$Longitud[39]<--75.597708
+BaseEX01$Longitud[40]<--75.597708
+BaseEX01$Longitud[41]<--75.485996
+BaseEX01$Longitud[42]<--75.584719
+BaseEX01$Longitud[43]<--75.599880
+BaseEX01$Longitud[44]<--75.568949
+BaseEX01$Longitud[45]<--75.588789
+BaseEX01$Longitud[46]<--75.566445
+BaseEX01$Longitud[47]<--75.586107
+BaseEX01$Longitud[48]<--75.587358
+BaseEX01$Longitud[49]<--75.585725
+BaseEX01$Longitud[50]<--75.585964
+BaseEX01$Longitud[51]<--75.588038
+BaseEX01$Longitud[52]<--75.585755
+BaseEX01$Longitud[53]<-3
+BaseEX01$Longitud[54]<--75.568494
+BaseEX01$Longitud[55]<--75.599882
+BaseEX01$Longitud[56]<--75.568584
+BaseEX01$Longitud[57]<--75.564977
+BaseEX01$Longitud[58]<--75.569489
+BaseEX01$Longitud[59]<--75.587699
+BaseEX01$Longitud[60]<--75.574625
+BaseEX01$Longitud[61]<--75.582353
+BaseEX01$Longitud[62]<--75.590926
+BaseEX01$Longitud[63]<--75.582248
+BaseEX01$Longitud[64]<--75.582282
+BaseEX01$Longitud[65]<--75.588313
+BaseEX01$Longitud[66]<--75.586038
+BaseEX01$Longitud[67]<--75.581097
+BaseEX01$Longitud[68]<--75.581468
+BaseEX01$Longitud[69]<--75.579292
+BaseEX01$Longitud[70]<--75.582697
+BaseEX01$Longitud[71]<--75.590357
+BaseEX01$Longitud[72]<--75.564063
+BaseEX01$Longitud[73]<--75.587245
+BaseEX01$Longitud[74]<--75.582008
+BaseEX01$Longitud[75]<--75.582290
+BaseEX01$Longitud[76]<--75.599756
+BaseEX01$Longitud[77]<--75.580677
+BaseEX01$Longitud[78]<--75.593062
+BaseEX01$Longitud[79]<--75.587760
+BaseEX01$Longitud[80]<--75.595173
+BaseEX01$Longitud[81]<--75.584701
+BaseEX01$Longitud[82]<--75.588017
+BaseEX01$Longitud[83]<--75.588663
+BaseEX01$Longitud[84]<--75.566857
+BaseEX01$Longitud[85]<--75.582744
+BaseEX01$Longitud[86]<--75.587041
+BaseEX01$Longitud[87]<--75.579470
+```
+
+```{r Especial 01-2 seleccionar coordenadas de centros educativos}
+BaseEX02 <- BaseEX01%>%
+  mutate(Coordenadas="Centro educativo")%>%
+  filter(Latitud>=6)%>%
+  select(Latitud,Longitud,Coordenadas)
+```
+
+```{r Especial 01-3 unir coordenadas de accidentes con centros educativos}
+total01 <- bind_rows(Accidente %>% rownames_to_column(), 
+          BaseEX02 %>% rownames_to_column())
+```
+
+
+```{r Especial 01-4 Grafico}
+ggplot(total01, aes(Longitud, Latitud, col = Coordenadas)) +
+  geom_point()
+```
+
+Podemos notar que el tipo de servicio que mayor accidentalidad presenta en particular, tanto en hombres como en mujeres, y que en general los hombres son los más accidentados en todo los tipos de servicios.
+
+EX2) Hay mayor o menor accidentalidad cerca de zonas de estacionamiento?
+
+
+```{r Pregunta especial 02-1 arreglo de coordenadas 1}
+base_EX1_01 <- ZER_2019 %>%
+  select(Coordenadas)%>%
+  mutate(Latitud= substring(Coordenadas,19,26))%>%
+  mutate(Longitud= substring(Coordenadas,8,16))%>%
+  mutate(Latitud=as.double(Latitud))%>%
+  mutate(Longitud=as.double(Longitud))
+  
+```
+
+```{r especial 02-2 arreglo de coordenadas 2}
+base_EX1_02 <- base_EX1_01%>%
+  filter(Latitud<6)%>%
+  mutate(Latitud=as.factor(Latitud))%>%
+  mutate(Latitud=str_replace(Latitud,"0","6")) %>%
+  mutate(Latitud=as.double(Latitud))%>%
+  select(Latitud,Longitud,Coordenadas)%>%
+  mutate(Coordenadas="Zonas de estacionamiento")
+```
+
+```{r especial 02-3 arreglo de coordenadas 3}
+base_EX1_03 <- base_EX1_01%>%
+  filter(Latitud>=6)%>%
+  select(Latitud,Longitud,Coordenadas)%>%
+  mutate(Coordenadas="Zonas de estacionamiento")
+```
+
+
+```{r especial 02-4 unir accidentes con centro educativo}
+total02 <- bind_rows(Accidente %>% rownames_to_column(), 
+          base_EX1_03 %>% rownames_to_column(),
+          base_EX1_02 %>% rownames_to_column())
+```
+
+```{r especial 02-5 Grafico}
+ggplot(total02, aes(Longitud, Latitud, col = Coordenadas)) +
+  geom_point()
+```
+
+De la grafica anterior podemos notar que la mayor accidentalidad se presenta en las zonas de estacionamiento.

@@ -1,0 +1,422 @@
+---
+title: "Variables relacionadas con los resultados pruebas saber 11 2019-02"
+author: "Wilder Camilo Castro Ramos , Andres Camilo Garcia Moreno"
+date: "21 de marzo de 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r librerias y cargar datos,results='hide', message=FALSE, warning=FALSE}
+library(xlsx)
+library(reshape)
+library(tidyverse)
+library(rlang)
+library(stats)
+library(ggplot2)
+library(utf8)
+#Leer archivo como RData
+load(("pruebas.RData"))
+#Leer archivo desmpeño fiscal
+load("fiscal.RData")
+#Leer archivo desmpeño fiscal por departamento
+load("fiscal_dep.RData")
+#Renombrar columna codigo municipio del colegio
+pruebas <- pruebas %>% 
+         dplyr::rename(mun = COLE_COD_MCPIO_UBICACION)
+#Renombrar columna codigo departamento del colegio
+pruebas <- pruebas %>% 
+         dplyr::rename(dep = COLE_COD_DEPTO_UBICACION)
+#Renombrar columna codigo municipio
+fiscal <- fiscal %>% 
+         dplyr::rename(codigo = CÃ³digo)
+#Renombrar columna codigo departamento
+fiscal_dep <- fiscal_dep %>% 
+         dplyr::rename(codigo_dep = CÃ³digo.)
+#Extraer municipios y departamentos
+dep <- as.numeric(substring(fiscal_dep$codigo_dep, 1, 2))
+fiscal_dep = data.frame(fiscal_dep, dep)
+mun <- as.numeric(substring(fiscal$codigo, 1, 5))
+fiscal = data.frame(fiscal, mun)
+```
+
+
+```{r Left join con desempeño fiscal por municipio}
+#Left join con desempeño fiscal por municipio
+pruebas1 <- select(pruebas %>% 
+  left_join(fiscal), mun, COLE_MCPIO_UBICACION,PUNT_GLOBAL,Indicador.de.desempeÃ.o.Fiscal.7.)
+```
+
+
+```{r Promedio puntaje global a nivel nacional}
+#Promedio puntaje global a nivel nacional
+mean(pruebas1$PUNT_GLOBAL)
+#Municipios con mejor desempeño fiscal del pais, con calificacion por encima de 80
+pruebas2 <- pruebas1 %>% 
+  select(mun, COLE_MCPIO_UBICACION,PUNT_GLOBAL,Indicador.de.desempeÃ.o.Fiscal.7.) %>% 
+  filter(Indicador.de.desempeÃ.o.Fiscal.7. > 80) %>% 
+  group_by(mun,COLE_MCPIO_UBICACION,Indicador.de.desempeÃ.o.Fiscal.7.) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))
+#Promedio puntaje global de Municipios con mejor desempeño fiscal del pais, con calificacion por encima de 80
+mean(pruebas2$puntaje)
+```
+
+```{r Left join con desempeño fiscal por departamento}
+#Left join con desempeño fiscal por departamento
+pruebas4 <- pruebas %>% mutate(dep = replace(dep, dep == 11, 25))
+pruebas4 <- pruebas4 %>% mutate(COLE_DEPTO_UBICACION = replace(COLE_DEPTO_UBICACION, COLE_DEPTO_UBICACION == "BOGOTÃ", "CUNDINAMARCA"))
+pruebas3 <- select(pruebas4 %>% 
+  left_join(fiscal_dep), dep, COLE_DEPTO_UBICACION,PUNT_GLOBAL,Indicador.de.desempeÃ.o.Fiscal.7.)
+```
+
+```{r Promedio calificacion por departamento}
+#Promedio calificacion por departamento
+pruebas5 <- pruebas3 %>% 
+  select(dep, COLE_DEPTO_UBICACION,PUNT_GLOBAL,Indicador.de.desempeÃ.o.Fiscal.7.) %>% 
+  group_by(dep,COLE_DEPTO_UBICACION,Indicador.de.desempeÃ.o.Fiscal.7.) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))
+#Ordenar departamentos por desempeño global
+pruebas5 <- pruebas5[with(pruebas5, order(-pruebas5$Indicador.de.desempeÃ.o.Fiscal.7.)), ]
+ggplot(data=pruebas5, aes(x=reorder(COLE_DEPTO_UBICACION,-Indicador.de.desempeÃ.o.Fiscal.7.), y=puntaje)) + geom_bar(stat="identity", width=0.5,fill = "#FF6666")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_hline(yintercept=246.18)+ 
+  xlab("Departamento") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por departamento")
+```
+
+```{r Estrato vivienda}
+#Estrato vivienda
+pruebas6 <- select(pruebas, FAMI_ESTRATOVIVIENDA,PUNT_GLOBAL)%>% 
+  group_by(FAMI_ESTRATOVIVIENDA) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))%>%
+  filter(!FAMI_ESTRATOVIVIENDA %in% c("", "-"))
+
+ggplot(data=pruebas6, aes(x=FAMI_ESTRATOVIVIENDA, y=puntaje)) + geom_bar(stat="identity", width=0.5,fill = "lightblue")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_hline(yintercept=246.18)+ 
+  xlab("Estrato") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por estrato socioeconomico")
+```
+
+
+```{r Numero de libros en el hogar}
+#Numero de libros en el hogar
+pruebas7 <- select(pruebas, FAMI_NUMLIBROS,PUNT_GLOBAL)%>% 
+  group_by(FAMI_NUMLIBROS) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))%>%
+  filter(!FAMI_NUMLIBROS %in% c("", "-"))
+
+ggplot(data=pruebas7, aes(x=FAMI_NUMLIBROS, y=puntaje, group=1)) + geom_line(size=1)+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_point(size=2)+ 
+  geom_line(color="mediumblue")+
+  xlab("Cantidad de libros") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por cantidad de libros en el hogar")
+```
+
+
+
+```{r Servicios o bienes en el hogar}
+#Servicios o bienes en el hogar
+vd <- pruebas%>%
+  select(FAMI_TIENECONSOLAVIDEOJUEGOS,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENECONSOLAVIDEOJUEGOS)%>%
+  filter(FAMI_TIENECONSOLAVIDEOJUEGOS=="Si" | FAMI_TIENECONSOLAVIDEOJUEGOS=="No")%>%
+  summarise('Consola_Videojuegos' = mean(PUNT_GLOBAL))
+tv <- pruebas%>%
+  select(FAMI_TIENESERVICIOTV,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENESERVICIOTV)%>%
+  filter(FAMI_TIENESERVICIOTV=="Si" | FAMI_TIENESERVICIOTV=="No")%>%
+  summarise(Tv = mean(PUNT_GLOBAL))
+eth <- pruebas%>%
+  select(FAMI_TIENEINTERNET,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENEINTERNET)%>%
+  filter(FAMI_TIENEINTERNET=="Si" | FAMI_TIENEINTERNET=="No")%>%
+  summarise(Internet = mean(PUNT_GLOBAL))
+lav <- pruebas%>%
+  select(FAMI_TIENELAVADORA,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENELAVADORA)%>%
+  filter(FAMI_TIENELAVADORA=="Si" | FAMI_TIENELAVADORA=="No")%>%
+  summarise(Lavadora = mean(PUNT_GLOBAL))
+comp <- pruebas%>%
+  select(FAMI_TIENECOMPUTADOR,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENECOMPUTADOR)%>%
+  filter(FAMI_TIENECOMPUTADOR=="Si" | FAMI_TIENECOMPUTADOR=="No")%>%
+  summarise(Computador = mean(PUNT_GLOBAL))
+mco <- pruebas%>%
+  select(FAMI_TIENEHORNOMICROOGAS,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENEHORNOMICROOGAS)%>%
+  filter(FAMI_TIENEHORNOMICROOGAS=="Si" | FAMI_TIENEHORNOMICROOGAS=="No")%>%
+  summarise(Microondas = mean(PUNT_GLOBAL))
+autom <- pruebas%>%
+  select(FAMI_TIENEAUTOMOVIL,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENEAUTOMOVIL)%>%
+  filter(FAMI_TIENEAUTOMOVIL=="Si" | FAMI_TIENEAUTOMOVIL=="No")%>%
+  summarise(Automovil = mean(PUNT_GLOBAL))
+moto <- pruebas%>%
+  select(FAMI_TIENEMOTOCICLETA,PUNT_GLOBAL)%>%
+  group_by(FAMI_TIENEMOTOCICLETA)%>%
+  filter(FAMI_TIENEMOTOCICLETA=="Si" | FAMI_TIENEMOTOCICLETA=="No")%>%
+  summarise(Motocicleta = mean(PUNT_GLOBAL))
+
+
+vd01 <- as.data.frame(t(vd[,-1]))
+tv01 <- as.data.frame(t(tv[,-1]))
+eth01 <- as.data.frame(t(eth[,-1]))
+lav01 <- as.data.frame(t(lav[,-1]))
+comp01 <- as.data.frame(t(comp[,-1]))
+mco01 <- as.data.frame(t(mco[,-1]))
+autom01 <- as.data.frame(t(autom[,-1]))
+moto01 <- as.data.frame(t(moto[,-1]))
+
+total01 <- bind_rows(vd01 %>% rownames_to_column(), 
+          tv01 %>% rownames_to_column(),
+          eth01 %>% rownames_to_column(),
+          lav01 %>% rownames_to_column(),
+          comp01 %>% rownames_to_column(),
+          mco01 %>% rownames_to_column(),
+          autom01 %>% rownames_to_column(),
+          moto01 %>% rownames_to_column())
+
+total02 <- total01%>%
+  mutate(No=V1,Si=V2)
+
+total0x <-total02%>%
+  select(rowname,No,Si)
+
+df2 <- melt(data = total0x, id.vars = "rowname", measure.vars = c("Si", "No"))
+
+df3<- df2%>%
+  dplyr::rename("Puntaje global"=value,Tenencia=variable,"Servicio o bien"=rowname)
+
+x=mean(pruebas$PUNT_GLOBAL)
+  ggplot(data=df3, aes(`Servicio o bien`,`Puntaje global`,fill=Tenencia)) +
+  geom_bar(stat="identity",position = position_dodge())+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  geom_hline(yintercept=x)+ggtitle("Puntaje global en las pruebas Saber con relacion a tenencia de bienes/ servicios")+ scale_y_continuous(breaks=seq(0, 250, 25))
+
+```
+
+```{r Pais de Residencia del estudiante}
+#Pais de Residencia del estudiante
+pruebas9 <- select(pruebas, ESTU_PAIS_RESIDE,PUNT_GLOBAL)%>% 
+  group_by(ESTU_PAIS_RESIDE) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))%>%
+  filter(!ESTU_PAIS_RESIDE %in% c("", "-"))
+
+ggplot(data=pruebas9, aes(x=reorder(ESTU_PAIS_RESIDE,-puntaje), y=puntaje, group=1)) + geom_line(size=1)+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_point(size=2)+ 
+  geom_line(color="mediumblue")+
+  xlab("Pais de residencia") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por pais de residencia")
+```
+
+```{r Etnia}
+#Etnia
+pruebas10 <- select(pruebas, ESTU_ETNIA,PUNT_GLOBAL)%>% 
+  group_by(ESTU_ETNIA) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))%>%
+  filter(!ESTU_ETNIA %in% c("", "-","Ninguno"))
+
+ggplot(data=pruebas10, aes(x=reorder(ESTU_ETNIA,-puntaje), y=puntaje)) + geom_bar(stat="identity", width=0.5,fill = "lightblue")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_hline(yintercept=246.18)+ 
+  xlab("Etnia") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por etnia")+ scale_y_continuous(breaks=seq(0, 250, 25))
+```
+
+
+```{r Consumo alimentario}
+#Consumo alimentario
+proteinas <- pruebas %>%
+  select(FAMI_COMECARNEPESCADOHUEVO,FAMI_COMECEREALFRUTOSLEGUMBRE,FAMI_COMELECHEDERIVADOS,PUNT_GLOBAL)%>% 
+  group_by(FAMI_COMECARNEPESCADOHUEVO) %>% 
+  summarize(Proteina=mean(PUNT_GLOBAL))%>%
+  filter(!FAMI_COMECARNEPESCADOHUEVO %in% c("", "-","Ninguno") )
+fruto <- pruebas %>%
+  select(FAMI_COMECARNEPESCADOHUEVO,FAMI_COMECEREALFRUTOSLEGUMBRE,FAMI_COMELECHEDERIVADOS,PUNT_GLOBAL)%>% 
+  group_by(FAMI_COMECEREALFRUTOSLEGUMBRE) %>% 
+  summarize(Frutos=mean(PUNT_GLOBAL))%>%
+  filter(!FAMI_COMECEREALFRUTOSLEGUMBRE %in% c("", "-","Ninguno") )
+lacteo <- pruebas %>%
+  select(FAMI_COMECARNEPESCADOHUEVO,FAMI_COMECEREALFRUTOSLEGUMBRE,FAMI_COMELECHEDERIVADOS,PUNT_GLOBAL)%>% 
+  group_by(FAMI_COMELECHEDERIVADOS) %>% 
+  summarize(Lacteos=mean(PUNT_GLOBAL))%>%
+  filter(!FAMI_COMELECHEDERIVADOS %in% c("", "-","Ninguno") )
+mmm <- cbind(proteinas,fruto,lacteo)
+perse <- mmm%>%
+  select(FAMI_COMECARNEPESCADOHUEVO,Proteina,Lacteos,Frutos)%>%
+  dplyr::rename(Frecuencia=FAMI_COMECARNEPESCADOHUEVO)
+df <- perse %>%
+  select(Frecuencia, Lacteos, Proteina,Frutos) %>%
+  gather(key = "Tipo de alimento", value = "value", -Frecuencia)
+ggplot(df, aes(x = reorder(Frecuencia,value), y = value)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  geom_point(aes(color = `Tipo de alimento`)) +
+  geom_line(aes(color = `Tipo de alimento`, linetype = `Tipo de alimento`,group=`Tipo de alimento`)) +
+  scale_color_manual(values = c("darkred", "blue","green"))+
+  xlab("Consumo de alimentos") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por consumo alimentario")
+```
+```{r Colegio publico y privado}
+#Colegio publico y privado
+pruebas12 <- select(pruebas, COLE_NATURALEZA,PUNT_GLOBAL)%>% 
+  group_by(COLE_NATURALEZA) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))%>%
+  filter(!COLE_NATURALEZA %in% c("", "-"))
+
+ggplot(data=pruebas12, aes(x=COLE_NATURALEZA, y=puntaje)) + geom_bar(stat="identity", width=0.5,fill = "chartreuse4")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_hline(yintercept=246.18)+ 
+  xlab("Naturaleza colegio") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por naturaleza del establecimiento")+ scale_y_continuous(breaks=seq(0, 250, 25))
+```
+
+```{r Tipo Calendario}
+#Tipo Calendario
+pruebas13 <- select(pruebas, COLE_CALENDARIO,PUNT_GLOBAL)%>% 
+  group_by(COLE_CALENDARIO) %>% 
+  summarize(puntaje=mean(PUNT_GLOBAL))%>%
+  filter(!COLE_CALENDARIO %in% c("", "-"))
+
+ggplot(data=pruebas13, aes(x=COLE_CALENDARIO, y=puntaje)) + geom_bar(stat="identity", width=0.5,fill = "red")+ theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_hline(yintercept=246.18)+ 
+  xlab("Tipo de calendario") + 
+  ylab("Promedio puntaje global") + 
+  ggtitle("Puntaje global en las pruebas Saber por tipo de calendario del colegio")+ scale_y_continuous(breaks=seq(0, 250, 25))
+```
+
+
+```{r colegio bilingue}
+#colegio bilingue
+ingless <- pruebas %>%
+  group_by(DESEMP_INGLES,COLE_BILINGUE)%>%
+  summarise("Numero de participantes" = n())%>%
+  filter(!COLE_BILINGUE %in% c("", "-","Ninguno") )%>%
+  mutate(COLE_BILINGUE=str_replace(COLE_BILINGUE,"N","NO")) %>%
+  mutate(COLE_BILINGUE=str_replace(COLE_BILINGUE,"S","SI"))%>%
+  dplyr::rename("Nivel de Ingles"=DESEMP_INGLES)
+
+graficoingles <-ggplot(ingless %>% filter(!is.na(COLE_BILINGUE)), 
+       aes(`Nivel de Ingles`, `Numero de participantes`,fill=`Nivel de Ingles`)) +
+  geom_bar(stat = "identity") +
+  ggtitle("Nivel de ingles de los participantes respecto a si su colegio es bilingue")+
+  facet_wrap(~COLE_BILINGUE, scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+suppressMessages(print(graficoingles))
+```
+
+```{r Puntaje global en las pruebas Saber por caracter de colegio}
+#Puntaje global en las pruebas Saber por caracter de colegio
+pruebas55 <- select(pruebas, FAMI_NUMLIBROS,PUNT_GLOBAL,COLE_NATURALEZA,COLE_CARACTER)%>% 
+  group_by(COLE_NATURALEZA,COLE_CARACTER) %>% 
+  summarize(Puntaje=mean(PUNT_GLOBAL))%>%
+  filter(!COLE_CARACTER %in% c("", "-"))%>%
+  dplyr::rename(`Tipo de colegio`=COLE_NATURALEZA,
+                `Caracter del colegio`=COLE_CARACTER)
+x=mean(pruebas$PUNT_GLOBAL)
+
+x=mean(pruebas$PUNT_GLOBAL)
+  ggplot(data=pruebas55, aes(`Tipo de colegio`,`Puntaje`,fill=`Caracter del colegio`)) +
+  geom_bar(stat="identity",position = position_dodge())+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  geom_hline(yintercept=x)+ggtitle("Puntaje global en las pruebas Saber por caracter de colegio")+ scale_y_continuous(breaks=seq(0, 250, 25))
+```
+
+```{r Puntaje en las pruebas Saber en asignaturas con horas de lectura}
+#Puntaje en las pruebas Saber en asignaturas con horas de lectura
+plect <- pruebas %>%
+  select(PUNT_LECTURA_CRITICA,PUNT_MATEMATICAS,PUNT_SOCIALES_CIUDADANAS,PUNT_C_NATURALES,PUNT_GLOBAL
+         ,PUNT_INGLES,ESTU_DEDICACIONLECTURADIARIA)%>% 
+  group_by(ESTU_DEDICACIONLECTURADIARIA) %>% 
+  summarize(`Puntaje lectura`=mean(PUNT_LECTURA_CRITICA))%>%
+  filter(!ESTU_DEDICACIONLECTURADIARIA %in% c("", "-"))%>%
+  dplyr::rename(dedicacionlect=ESTU_DEDICACIONLECTURADIARIA)
+pmath <- pruebas %>%
+  select(PUNT_LECTURA_CRITICA,PUNT_MATEMATICAS,PUNT_SOCIALES_CIUDADANAS,PUNT_C_NATURALES,PUNT_GLOBAL
+         ,PUNT_INGLES,ESTU_DEDICACIONLECTURADIARIA)%>% 
+  group_by(ESTU_DEDICACIONLECTURADIARIA) %>% 
+  summarize(`Puntaje matematicas`=mean(PUNT_MATEMATICAS))%>%
+  filter(!ESTU_DEDICACIONLECTURADIARIA %in% c("", "-"))%>%
+  dplyr::rename(dedicacionmath=ESTU_DEDICACIONLECTURADIARIA)
+pnaturales <- pruebas %>%
+  select(PUNT_LECTURA_CRITICA,PUNT_MATEMATICAS,PUNT_SOCIALES_CIUDADANAS,PUNT_C_NATURALES,PUNT_GLOBAL
+         ,PUNT_INGLES,ESTU_DEDICACIONLECTURADIARIA)%>% 
+  group_by(ESTU_DEDICACIONLECTURADIARIA) %>% 
+  summarize(`Puntaje C.Naturales`=mean(PUNT_C_NATURALES))%>%
+  filter(!ESTU_DEDICACIONLECTURADIARIA %in% c("", "-"))%>%
+  dplyr::rename(dedicacionnatu=ESTU_DEDICACIONLECTURADIARIA)
+psoc <- pruebas %>%
+  select(PUNT_LECTURA_CRITICA,PUNT_MATEMATICAS,PUNT_SOCIALES_CIUDADANAS,PUNT_C_NATURALES,PUNT_GLOBAL
+         ,PUNT_INGLES,ESTU_DEDICACIONLECTURADIARIA)%>% 
+  group_by(ESTU_DEDICACIONLECTURADIARIA) %>% 
+  summarize(`Puntaje C.Sociales`=mean(PUNT_SOCIALES_CIUDADANAS))%>%
+  filter(!ESTU_DEDICACIONLECTURADIARIA %in% c("", "-"))%>%
+  dplyr::rename(dedicacionsociales=ESTU_DEDICACIONLECTURADIARIA)
+msm <- cbind(plect,pmath,pnaturales,psoc)
+mjj <- msm%>%
+  select(dedicacionlect,`Puntaje lectura`,`Puntaje matematicas`,`Puntaje C.Naturales`,`Puntaje C.Sociales`)
+deefe <- mjj %>%
+  select(dedicacionlect, `Puntaje lectura`,`Puntaje matematicas`,`Puntaje C.Naturales`,`Puntaje C.Sociales`) %>%
+  gather(key = "Tipo de asignatura", value = "value", -dedicacionlect)
+ggplot(deefe, aes(x = reorder(dedicacionlect,value), y = value)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  geom_point(aes(color = `Tipo de asignatura`)) +
+  geom_line(aes(color = `Tipo de asignatura`, linetype = `Tipo de asignatura`,group=`Tipo de asignatura`)) +
+  scale_color_manual(values = c("darkred", "blue","green","yellow"))+
+  xlab("Dedicacion horaria") + 
+  ylab("Puntaje promedio") + 
+  ggtitle("Puntaje en las pruebas Saber en asignaturas con horas de lectura")
+```
+
+```{r Puntaje global en las pruebas Saber relacion trabajo padre/tipo de colegio}
+#Puntaje global en las pruebas Saber relacion trabajo padre/tipo de colegio
+papa1   <- pruebas %>%
+  select(FAMI_EDUCACIONMADRE,FAMI_EDUCACIONPADRE,PUNT_GLOBAL,COLE_NATURALEZA)%>% 
+  group_by(FAMI_EDUCACIONPADRE,COLE_NATURALEZA) %>% 
+  summarize(`Puntaje`=mean(PUNT_GLOBAL))%>%
+  filter(!FAMI_EDUCACIONPADRE %in% c("", "-"))%>%
+  dplyr::rename(`Profesion del padre`=FAMI_EDUCACIONPADRE,
+                `Tipo de colegio`=COLE_NATURALEZA)
+x=mean(pruebas$PUNT_GLOBAL)
+  ggplot(data=papa1, aes(`Profesion del padre`,`Puntaje`,fill=`Tipo de colegio`)) +
+  geom_bar(stat="identity",position = position_dodge())+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  geom_hline(yintercept=x)+ggtitle("Puntaje global en las pruebas Saber relacion trabajo padre/tipo de colegio")+ scale_y_continuous(breaks=seq(0, 250, 25))
+
+```
+
+
+```{r Puntaje global en las pruebas Saber por jornada y ubicacion del colegio}
+#Puntaje global en las pruebas Saber por jornada y ubicacion del colegio
+stt   <- pruebas %>%
+  select(COLE_JORNADA,PUNT_GLOBAL,COLE_AREA_UBICACION)%>% 
+  group_by(COLE_JORNADA,COLE_AREA_UBICACION) %>% 
+  summarize(`Puntaje`=mean(PUNT_GLOBAL))%>%
+  filter(!COLE_JORNADA %in% c("", "-"))%>%
+  dplyr::rename(`Ubicacion del colegio`=COLE_AREA_UBICACION,
+                `Jornada academica`=COLE_JORNADA)
+x=mean(pruebas$PUNT_GLOBAL)
+  ggplot(data=stt, aes(`Jornada academica`,`Puntaje`,fill=`Ubicacion del colegio`)) +
+  geom_bar(stat="identity",position = position_dodge())+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  geom_hline(yintercept=x)+ggtitle("Puntaje global en las pruebas Saber por jornada y ubicacion del colegio")+ scale_y_continuous(breaks=seq(0, 250, 25))
+```
+
+```{r puntaje global por horas de trabajo}
+#puntaje global por horas de trabajo
+sptt   <- pruebas %>%
+  select(PUNT_GLOBAL,ESTU_HORASSEMANATRABAJA)%>% 
+  group_by(ESTU_HORASSEMANATRABAJA) %>% 
+  summarize(`Puntaje`=mean(PUNT_GLOBAL))%>%
+  filter(!ESTU_HORASSEMANATRABAJA %in% c("", "-"))
+x=mean(pruebas$PUNT_GLOBAL)
+  ggplot(data=sptt, aes(reorder(`ESTU_HORASSEMANATRABAJA`,desc(Puntaje)),`Puntaje`)) +
+  geom_point()+
+  geom_line(group=1)+
+  theme(axis.text.x = element_text(angle = 90, hjust = 0))+
+  geom_hline(yintercept=x)+ggtitle("Puntaje global en las pruebas Saber por horas de trabajo")+ scale_y_continuous(breaks=seq(0, 250, 25))+
+    xlab("Intensidad horaria del trabajo")
+```
+
